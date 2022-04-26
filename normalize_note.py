@@ -3,15 +3,19 @@ from pathlib import Path
 from pyparsing import col
 from requests import patch
 from utils import get_notes
+from botok import WordTokenizer
+
 
 normalized_collated_text = ""
 prev_end = 0
 
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
-    if resolve_omission_with_sub(cur_note):
+    if resolve_long_omission_with_sub(cur_note):
         pass
-    elif resolve_long_omission_with_sub(cur_note):
+    elif resolve_omission_with_sub(cur_note):
+        pass
+    elif resolve_full_word_addition(cur_note):
         pass
     elif resolve_long_add_with_sub(cur_note,next_note):
         pass
@@ -19,6 +23,23 @@ def normalize_note(cur_note,next_note=None):
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end
+
+def resolve_full_word_addition(note):
+    global normalized_collated_text,prev_end
+    note_options = get_note_alt(note)
+    if len(note_options) == 1 and '+' in note_options[0]:
+        start,end = note['span']
+        pyld_start,pyld_end = get_payload_span(note)
+        index_sub = start-len(note_options[0])-1
+        while collated_text[index_sub] != "་":
+            index_sub-=1
+        new_pyld =  collated_text[index_sub+1:start] + collated_text[pyld_start+1:pyld_end]   
+        normalized_collated_text+=collated_text[prev_end:index_sub+1]+":"+collated_text[index_sub+1:start]+collated_text[start:pyld_start]+new_pyld+">"
+        prev_end=end
+        return True
+    return False        
+        
+
 
 def resolve_omission_with_sub(note):
     global normalized_collated_text,prev_end
@@ -32,8 +53,8 @@ def resolve_omission_with_sub(note):
         index_plus = end    
         while collated_text[index_plus] != "་":
             index_plus+=1
-        new_payload = collated_text[index_sub:start-len(note_options[0])+1]+collated_text[end:index_plus+1]
-        normalized_collated_text+=collated_text[prev_end:start]+collated_text[end:index_plus+1]+collated_text[start:pyld_start]+new_payload+">"
+        new_payload = collated_text[index_sub+1:start-len(note_options[0])+1]+collated_text[end:index_plus+1]
+        normalized_collated_text+=collated_text[prev_end:index_sub+1]+":"+collated_text[index_sub+1:start]+collated_text[end:index_plus+1]+collated_text[start:pyld_start]+new_payload+">"
         prev_end = end+len(collated_text[end:index_plus+1])
         return True
 
@@ -48,7 +69,7 @@ def resolve_long_omission_with_sub(note):
         z = re.match("(.*<)(«.*»)+([^.]+).....(.*)>",note['real_note'])
         first_word = z.group(3)
         last_word = z.group(4)
-        normalized_collated_text += collated_text[prev_end:pyld_start]+first_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས"+last_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས>"
+        normalized_collated_text += collated_text[prev_end:pyld_start]+first_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས་"+last_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས་>"
         prev_end = end
         return True
     
@@ -95,6 +116,14 @@ def get_note_alt(note):
 
     return options
 
+def get_tokens(wt, text):
+    tokens = wt.tokenize(text, split_affixes=False)
+    return tokens
+
+def is_valid_token():
+    wt = WordTokenizer()
+    text = "བཀྲ་ཤིས་བདེ་ལེགས་ཞུས་རྒྱུ་ཡིན་ སེམས་པ་སྐྱིད་པོ་འདུག།"
+    tokens = get_tokens(wt, text)   
 
 def main():
     global collated_text,normalized_collated_text
