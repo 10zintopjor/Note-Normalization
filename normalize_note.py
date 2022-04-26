@@ -3,7 +3,7 @@ from pathlib import Path
 from numpy import true_divide
 from pyparsing import col
 from requests import patch
-from utils import get_notes
+from utils import get_notes,get_syls
 from botok import WordTokenizer
 
 
@@ -12,7 +12,11 @@ prev_end = 0
 
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
-    if resolve_msword_split_by_marker(cur_note):
+    if resolve_msword_without(cur_note):
+        print("1")
+        pass
+    elif resolve_msword_split_by_marker(cur_note):
+        print("2")
         pass
     elif resolve_long_omission_with_sub(cur_note):
         pass
@@ -26,6 +30,25 @@ def normalize_note(cur_note,next_note=None):
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end
+
+def resolve_msword_without(note):
+    global normalized_collated_text,prev_end
+    note_options = get_note_alt(note)
+    if len(note_options) == 1:
+        start,end = note['span']
+        pyld_start,pyld_end = get_payload_span(note)
+        i=-1
+        syls = get_syls(note["left_context"])
+        word = ""
+        while i > -3:
+            word=syls[i]+word
+            if check_token_validity(word,note['default_option']):
+                normalized_collated_text+=collated_text[prev_end:start-len(word+note['default_option'])]+":"+collated_text[start-len(word+note['default_option']):start]+collated_text[start:pyld_start]+word+note_options[0]+">"
+                prev_end =end
+                return True
+            i-=1
+    return False
+
 
 def resolve_msword_split_by_marker(note):
     global normalized_collated_text,prev_end
