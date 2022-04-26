@@ -9,14 +9,35 @@ prev_end = 0
 
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
-    if resolve_long_add_with_sub(cur_note,next_note):
+    if resolve_omission_with_sub(cur_note):
         pass
     elif resolve_long_omission_with_sub(cur_note):
+        pass
+    elif resolve_long_add_with_sub(cur_note,next_note):
         pass
     else:
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end
+
+def resolve_omission_with_sub(note):
+    global normalized_collated_text,prev_end
+    note_options = get_note_alt(note)
+    if len(note_options) == 1 and '-' in note_options[0]:
+        start,end = note['span']
+        pyld_start,pyld_end = get_payload_span(note)
+        index_sub = start-len(note_options[0])-1
+        while collated_text[index_sub] != "་":
+            index_sub-=1
+        index_plus = end    
+        while collated_text[index_plus] != "་":
+            index_plus+=1
+        new_payload = collated_text[index_sub:start-len(note_options[0])+1]+collated_text[end:index_plus+1]
+        normalized_collated_text+=collated_text[prev_end:start]+collated_text[end:index_plus+1]+collated_text[start:pyld_start]+new_payload+">"
+        prev_end = end+len(collated_text[end:index_plus+1])
+        return True
+
+    return False    
 
 
 def resolve_long_omission_with_sub(note):
@@ -32,16 +53,6 @@ def resolve_long_omission_with_sub(note):
         return True
     
     return False
-
-
-def get_payload_span(note):
-    real_note = note['real_note']
-    z = re.match("(.*<)(«.*»)+(.*)>",real_note)
-    start,end = note["span"]
-    pyld_start = start+len(z.group(1))+len(z.group(2))
-    pyld_end = pyld_start + len(z.group(3))
-
-    return pyld_start,pyld_end
     
 
 
@@ -64,6 +75,14 @@ def resolve_long_add_with_sub(cur_note,next_note):
             
     return False         
 
+def get_payload_span(note):
+    real_note = note['real_note']
+    z = re.match("(.*<)(«.*»)+(.*)>",real_note)
+    start,end = note["span"]
+    pyld_start = start+len(z.group(1))+len(z.group(2))
+    pyld_end = pyld_start + len(z.group(3))
+
+    return pyld_start,pyld_end
 
 def get_note_alt(note):
     note_parts = re.split('(«པེ་»|«སྣར་»|«སྡེ་»|«ཅོ་»|«པེ»|«སྣར»|«སྡེ»|«ཅོ»)',note['real_note'])
