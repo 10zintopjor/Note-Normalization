@@ -188,20 +188,21 @@ def get_indexes(note,index_sub):
     return index_plus,index_sub 
 
 
-def main():
-    global collated_text,normalized_collated_text
-    collated_text = Path("./test.txt").read_text(encoding="utf-8")
+def get_normalized_text(collated_text):
+    normalized_collated_text = ""
     notes = get_notes(collated_text)
     for index,note in enumerate(notes,0):
         if len(notes) > index+1:
             normalize_note(notes[index],notes[index+1])
         else:
             normalize_note(notes[index]) 
-            normalized_collated_text+=collated_text[prev_end:]   
+            normalized_collated_text+=collated_text[prev_end:]
+    return normalized_collated_text  
 
 
 if __name__ == "__main__":
-    main()
+    collated_text = Path('./test.txt').read_text(encoding='utf-8')
+    normalized_collated_text = get_normalized_text(collated_text)
     Path("./gen_test.txt").write_text(normalized_collated_text)
 
     
