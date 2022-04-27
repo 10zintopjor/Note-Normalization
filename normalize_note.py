@@ -10,7 +10,9 @@ prev_end = 0
 
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
-    if resolve_msword_without(cur_note):
+    if resolve_mono_syllable(cur_note):
+        pass
+    elif resolve_msword_without(cur_note):
         pass
     elif resolve_long_omission_with_sub(cur_note):
         pass
@@ -24,6 +26,19 @@ def normalize_note(cur_note,next_note=None):
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end
+
+
+def resolve_mono_syllable(note):
+    global normalized_collated_text,prev_end
+    note_options = get_note_alt(note)
+    if len(note_options) == 1:
+        start,end = note['span']
+        pyld_start,pyld_end = get_payload_span(note)
+        if check_token_validity(note_options[0]):
+            normalized_collated_text+=collated_text[prev_end:start-len(note['default_option'])]+":"+collated_text[start-len(note['default_option']):pyld_start]+note['default_option']+">"
+            prev_end = end
+            return True
+    return False        
 
 
 def resolve_msword_without(note):
