@@ -4,23 +4,29 @@ from requests import patch
 from utils import get_notes,get_syls
 from botok import WordTokenizer
 
-
+wt = WordTokenizer()
 normalized_collated_text = ""
 prev_end = 0
+
 
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
     if resolve_mono_syllable(cur_note):
         pass
     elif resolve_msword_without(cur_note):
+        print("1")
         pass
     elif resolve_long_omission_with_sub(cur_note):
+        print("2")
         pass
     elif resolve_omission_with_sub(cur_note):
+        print("3x")
         pass
     elif resolve_full_word_addition(cur_note):
+        print("4")
         pass
     elif resolve_long_add_with_sub(cur_note,next_note):
+        print("5")
         pass
     else:
         start,end = cur_note["span"]
@@ -28,15 +34,32 @@ def normalize_note(cur_note,next_note=None):
         prev_end = end
 
 
-def resolve_mono_syllable(note):
+def resolve_mono_syllable(note):      
     global normalized_collated_text,prev_end
     note_options = get_note_alt(note)
+    if not is_mono_syll(note_options):
+        return False
     if len(note_options) == 1:
         start,end = note['span']
         pyld_start,pyld_end = get_payload_span(note)
-        if check_token_validity(note_options[0]):
+        if is_valid_word(note_options[0]):
             normalized_collated_text+=collated_text[prev_end:start-len(note['default_option'])]+":"+collated_text[start-len(note['default_option']):pyld_start]+note['default_option']+">"
             prev_end = end
+            return True
+    return False        
+
+
+def is_mono_syll(word):
+    syl = get_syls(word)
+    if len(syl) == 1:
+        return True
+    return False        
+
+
+def is_valid_word(word):
+    tokens = get_tokens(wt, word)
+    for token in tokens:
+        if token.pos != "NON_WORD":
             return True
     return False        
 
@@ -44,6 +67,8 @@ def resolve_mono_syllable(note):
 def resolve_msword_without(note):
     global normalized_collated_text,prev_end
     note_options = get_note_alt(note)
+    if "+" in note_options[0] or "-" in note_options[0]:
+        return False
     if len(note_options) == 1:
         start,end = note['span']
         pyld_start,pyld_end = get_payload_span(note)
@@ -100,10 +125,16 @@ def resolve_full_word_addition(note):
         pyld_start,pyld_end = get_payload_span(note)
         index_sub = start-2
         index_plus,index_sub = get_indexes(note,index_sub)
-        new_pyld =  collated_text[index_sub+1:start] + collated_text[pyld_start+1:pyld_end]   
-        normalized_collated_text+=collated_text[prev_end:index_sub+1]+":"+collated_text[index_sub+1:start]+collated_text[start:pyld_start]+new_pyld+">"
-        prev_end=end
-        return True
+        left_syls = get_syls(note["left_context"])
+        word = ""
+        i=-1
+        while i > -len(left_syls):
+            word=left_syls[i]+word
+            if check_token_validity(left_syls[i]):
+                normalized_collated_text+=collated_text[prev_end:start-len(word)]+":"+word+collated_text[start:pyld_start]+word+note_options[0].replace("+","")+">"
+                prev_end =end
+                return True
+            i-=1
     return False        
 
 
@@ -182,14 +213,13 @@ def get_tokens(wt, text):
     return tokens
 
 
-def check_token_validity(first_word,second_word):
-    wt = WordTokenizer()
-    text = first_word+second_word
-    tokens = get_tokens(wt, text) 
-    if len(tokens) == 1:
-        return True
-    else:
-        return False
+def check_token_validity(word):
+    tokens = get_tokens(wt, word)
+    for token in tokens:
+        print(token.pos)
+        if token.pos not in ["NON_WORD","PART"]:
+            return True
+    return False
 
 
 def get_indexes(note,index_sub):
@@ -204,7 +234,7 @@ def get_indexes(note,index_sub):
 
 
 def get_normalized_text(collated_text):
-    normalized_collated_text = ""
+    global normalized_collated_text
     notes = get_notes(collated_text)
     for index,note in enumerate(notes,0):
         if len(notes) > index+1:
