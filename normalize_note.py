@@ -11,18 +11,15 @@ wt = WordTokenizer()
 normalized_collated_text = ""
 prev_end = 0
 
-
 def normalize_note(cur_note,next_note=None):
     global normalized_collated_text,prev_end
     if resolve_msword_without(cur_note):
+        print("11")
         pass
     elif resolve_msword_split_by_marker(cur_note):
         print("10")
         pass
-    elif resolve_mono_syllable(cur_note):
-        print("9")
-        pass
-    elif resolve_long_omission_with_sub(cur_note):
+    if resolve_long_omission_with_sub(cur_note):
         print("2")
         pass
     elif resolve_omission_with_sub(cur_note):
@@ -40,6 +37,7 @@ def normalize_note(cur_note,next_note=None):
         prev_end = end
 
 # two ore more options not resolved
+#mono syllable word clashing with other condition needed
 def resolve_mono_syllable(note):      
     global normalized_collated_text,prev_end
     note_options = note["alt_options"]
@@ -58,7 +56,7 @@ def resolve_mono_syllable(note):
 def resolve_msword_without(note):
     global normalized_collated_text,prev_end
     note_options = note["alt_options"]
-    if "+" in note_options[0] or "-" in note_options[0]:
+    if "+" in note["real_note"] or "-" in note["real_note"]:
         return False
     i=-1
     left_syls = get_syls(note["left_context"])
@@ -90,7 +88,7 @@ def resolve_msword_without(note):
 def resolve_msword_split_by_marker(note):
     global normalized_collated_text,prev_end
     note_options = note["alt_options"]
-    if "+" in note_options[0] or "-" in note_options[0]:
+    if "+" in note["real_note"] or "-" in note["real_note"]:
         return False
     i=0
     right_syls = get_syls(note["right_context"])
@@ -117,27 +115,41 @@ def resolve_msword_split_by_marker(note):
 
     return False
 
-
+#almost done
 def resolve_full_word_addition(note):
     global normalized_collated_text,prev_end
-    note_options = get_note_alt(note)
-    if len(note_options) == 1 and '+' in note_options[0]:
+    if "+" in note["real_note"] and "-" not in note["real_note"]:     
+        note_options = get_note_alt(note)
         start,end = note['span']
-        pyld_start,pyld_end = get_payload_span(note)
-        index_sub = start-2
-        index_plus,index_sub = get_indexes(note,index_sub)
-        left_syls = get_syls(note["left_context"])
-        word = ""
-        i=-1
-        while i > -len(left_syls):
-            word=left_syls[i]+word
-            if check_token_validity(left_syls[i]):
-                removed_tsek_altword = replace_tsek(note_options[0].replace("+",""),note["default_option"])
-                normalized_collated_text+=collated_text[prev_end:start-len(word)]+":"+word+collated_text[start:pyld_start]+word+removed_tsek_altword+">"
-                prev_end =end
-                return True
-            i-=1
-    return False        
+        new_note = collated_text[start:end]
+        index_minus = set()
+        for note_option in reversed(note_options):
+            left_syls = get_syls(note["left_context"])
+            word = note_option.replace("+","")
+            if "+" in note_option:
+                i=-1
+                while i > -len(left_syls) and i >= -3:
+                    word=left_syls[i]+word
+                    if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
+                        option_start,option_end = get_option_span(note,note_option)
+                        new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
+                        index_minus.add(i)
+                        break
+                    i-=1
+        if new_note != collated_text[start:end] and len(list(index_minus)) == 1:
+            before_default_word = convert_syl_to_word(left_syls[i:])
+            normalized_collated_text+=collated_text[prev_end:start-len(before_default_word)]+":"+collated_text[start-len(before_default_word):start]+new_note
+            prev_end = end
+        return True
+
+    return False   
+
+def get_option_span(note,option):
+    start,end = note["span"]
+    z = re.search(f"\{option}",note["real_note"])
+    option_start = start+z.start()
+    option_end = start+z.end()
+    return option_start,option_end
 
 
 def resolve_omission_with_sub(note):
@@ -202,7 +214,7 @@ def convert_syl_to_word(syls):
     word = ""
     for syl in syls:
         word += syl
-    return syl
+    return word
 
 
 def is_valid_word(word):
@@ -220,7 +232,6 @@ def get_payload_span(note):
     pyld_start = start+len(z.group(1))+len(z.group(2))
     pyld_end = pyld_start + len(z.group(3))
     return pyld_start,pyld_end
-
 
 
 def get_note_alt(note):
