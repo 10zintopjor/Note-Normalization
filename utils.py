@@ -96,11 +96,18 @@ def update_left_context(default_option, prev_chunk, chunk):
         left_context = prev_chunk
     return left_context
 
-def get_alt_options(default_option,note_options):
+def get_alt_options(note):
     alt_options = []
+    start,end = note["span"]
+    real_note = note["real_note"]
+    default_option = note['default_option']
+    note_options = note['note_options']
     for note in set(note_options.values()):
         if note != default_option and note != "":
-            alt_options.append(note)
+            z = re.search(f"{note}",real_note)
+            option_start = start+z.start()
+            option_end = start+z.end()
+            alt_options.append({"note":note,"span":(option_start,option_end)})
     return alt_options        
 
 def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
@@ -110,7 +117,6 @@ def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
     next_context = get_context(next_chunk, type_= 'right')
     note_options = get_note_options(default_option, note_chunk)
     note_options = dict(sorted(note_options.items()))
-    alt_options = get_alt_options(default_option,note_options)
     note_span,prev_end,real_note = get_note_span(collated_text,note_chunk,prev_end)
     note = {
         "left_context":prev_context,
@@ -118,10 +124,11 @@ def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
         "default_option":clean_default_option(default_option),
         "default_clone_option":default_option,
         "note_options":note_options,
-        "alt_options":alt_options,
         "span":note_span,
         "real_note":real_note
     }
+    note["alt_options"] = get_alt_options(note)
+
     return note,prev_end
 
 def clean_default_option(option):
