@@ -144,19 +144,33 @@ def resolve_full_word_addition(note):
 
     return False   
 
-
+#almost done
 def resolve_omission_with_sub(note):
     global normalized_collated_text,prev_end
     note_options = get_note_alt(note)
-    if len(note_options) == 1 and '-' in note_options[0]:
-        start,end = note['span']
-        pyld_start,pyld_end = get_payload_span(note)
-        index_sub = start-len(note_options[0])-1
-        index_plus,index_sub = get_indexes(note,index_sub)
-        new_payload = collated_text[index_sub+1:start-len(note_options[0])+1]+collated_text[end:index_plus+1]
-        normalized_collated_text+=collated_text[prev_end:index_sub+1]+":"+collated_text[index_sub+1:start]+collated_text[end:index_plus+1]+collated_text[start:pyld_start]+new_payload+">"
-        prev_end = end+len(collated_text[end:index_plus+1])
-        return True
+    if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1:
+        i_plus=0
+        berfore_note=""
+        after_note=""
+        right_syls = get_syls(note["right_context"])
+        left_syls = get_syls(note["left_context"])
+        start,end = note["span"]
+        while i_plus < len(right_syls) and i_plus<3:
+            if get_token_pos(right_syls[i_plus]) != "NON_WORD":
+                after_note = after_note+right_syls[i_plus]
+                break
+            i_plus+=1
+        i_minus=-1
+        while i_minus > -len(left_syls) and i_minus >= -3:
+            if get_token_pos(left_syls[i_minus]) not in ["NON_WORD","PART"]:
+                berfore_note=left_syls[i_minus]+berfore_note
+                break
+            i-=1
+        pyld_start,_ = get_payload_span(note)    
+        if (i_plus < len(right_syls) and i_plus<3) or (i_minus > -len(left_syls) and i_minus >= -3):
+            normalized_collated_text+= collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+berfore_note+after_note+">" 
+            prev_end = end+len(after_note)
+            return True
     return False    
 
 
