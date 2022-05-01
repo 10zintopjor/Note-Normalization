@@ -1,5 +1,5 @@
 from http.client import IM_USED
-from operator import truediv
+from operator import index, truediv
 import re
 from pathlib import Path
 from socket import AI_PASSIVE
@@ -11,15 +11,18 @@ wt = WordTokenizer()
 normalized_collated_text = ""
 prev_end = 0
 
-def normalize_note(cur_note,next_note=None):
+def normalize_note(cur_note,next_note=None,notes_iter=None):
     global normalized_collated_text,prev_end
-    if resolve_msword_without(cur_note):
+    if resolve_long_add_with_sub(cur_note,next_note,notes_iter):
+        print("5")
+        pass
+    elif resolve_msword_without(cur_note):
         print("11")
         pass
     elif resolve_msword_split_by_marker(cur_note):
         print("10")
         pass
-    if resolve_long_omission_with_sub(cur_note):
+    elif resolve_long_omission_with_sub(cur_note):
         print("2")
         pass
     elif resolve_omission_with_sub(cur_note):
@@ -27,9 +30,6 @@ def normalize_note(cur_note,next_note=None):
         pass
     elif resolve_full_word_addition(cur_note):
         print("4")
-        pass
-    elif resolve_long_add_with_sub(cur_note,next_note):
-        print("5")
         pass
     else:
         start,end = cur_note["span"]
@@ -55,25 +55,22 @@ def resolve_mono_syllable(note):
 #Solved
 def resolve_msword_without(note):
     global normalized_collated_text,prev_end
-    note_options = note["alt_options"]
     if "+" in note["real_note"] or "-" in note["real_note"]:
         return False
-    i=-1
-    left_syls = get_syls(note["left_context"])
+    index_set = set()
     start,end = note["span"]
-    index_minus = set()
+    left_syls = get_syls(note["left_context"])
+    note_options = note["alt_options"]
     new_note = collated_text[start:end]
-    for note_option in reversed(note_options):
-        word = note_option["note"]
+    for note_option in reversed(note_options):  
         option_start,option_end = note_option["span"]
-        while i >= -len(left_syls) and i >= -3:
-            word=left_syls[i]+word
-            if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
-                new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
-                index_minus.add(i)
-                break             
-            i-=1
-    if new_note != collated_text[start:end] and len(list(index_minus)) == 1:
+        tup = do_loop_minus(note,note_option)
+        if tup!=None:
+            word,i = tup
+            new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
+            index_set.add(i)
+    
+    if new_note != collated_text[start:end] and len(list(index_set)) == 1:
         before_default_word = convert_syl_to_word(left_syls[i:])
         normalized_collated_text+=collated_text[prev_end:start-len(note["default_option"])-len(before_default_word)]+":"+collated_text[start-len(note["default_option"])-len(before_default_word):start]+new_note
         prev_end = end
@@ -81,6 +78,17 @@ def resolve_msword_without(note):
 
     return False
 
+def do_loop_minus(note,note_option):
+    i=-1
+    left_syls = get_syls(note["left_context"])
+    word = note_option["note"]
+    while i >= -len(left_syls) and i >= -3:
+        word=left_syls[i]+word
+        if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
+            return word,i
+        i-=1
+    
+    return None
 #resolve_msword_without and resolve_msword_split_by_marker clashing which one to be put first
 # almost solved doubt if option_start ==option end 
 #can default option be empty?
@@ -176,7 +184,7 @@ def resolve_omission_with_sub(note):
 
 def resolve_long_omission_with_sub(note):
     global normalized_collated_text,prev_end
-    if '.....' in note['real_note']:
+    if '.....' in note['real_note'] and "-" in note["real_note"]:
         _,end = note["span"]
         pyld_start,pyld_end = get_payload_span(note)
         z = re.match("(.*<)(«.*»)+([^.]+).....(.*)>",note['real_note'])
@@ -188,21 +196,32 @@ def resolve_long_omission_with_sub(note):
     return False
     
 
-def resolve_long_add_with_sub(cur_note,next_note):
-    global normalized_collated_text,prev_end
-    if next_note == None:
-        return False
+def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
+    global normalized_collated_text,prev_end 
+    if notes_iter == None:
+        return False   
     cur_note_options = get_note_alt(cur_note)
     next_note_options = get_note_alt(next_note)    
     cur_start,cur_end = cur_note["span"]
-    next_start,next_end = next_note["span"]    
+    next_start,next_end = next_note["span"]  
+    left_syls = get_syls(cur_note["left_context"])
+    
     if next_start != cur_end:
         return False  
     if 1 in {len(cur_note_options),len(next_note_options)}:
         if '-' in cur_note_options[0] and '+' in next_note_options[0]:
-            normalized_collated_text += collated_text[prev_end:cur_start-len(cur_note_options[0])+1]+collated_text[next_start:next_end]
-            prev_end = next_end
-            return True            
+            i_minus = -1
+            before_note = ""
+            while i_minus > -len(left_syls) and i_minus >= -3:
+                if get_token_pos(left_syls[i_minus]) not in ["NON_WORD","PART"]:
+                    before_note=left_syls[i_minus]+before_note
+                    next_pyld_start,next_pyld_end = get_payload_span(next_note)
+                    normalized_collated_text += collated_text[prev_end:cur_start]+collated_text[next_start:next_pyld_start]+before_note+collated_text[next_pyld_start+1:next_pyld_end]+">"
+                    prev_end = next_end
+                    next(notes_iter)
+                    return True
+                i_minus-=1
+                        
     return False         
 
 def is_mono_syll(words):
@@ -275,25 +294,19 @@ def replace_tsek(removed_tsek_altword,default_option):
     return removed_tsek_altword   
 
 
-def get_indexes(note,index_sub):
-    start,end = note['span']
-    while collated_text[index_sub] != "་":
-            index_sub-=1
-    index_plus = end    
-    while collated_text[index_plus] != "་":
-        index_plus+=1    
-
-    return index_plus,index_sub 
-
 def get_normalized_text(collated_text):
     global normalized_collated_text
     notes = get_notes(collated_text)
-    for index,note in enumerate(notes,0):
-        if len(notes) > index+1:
-            normalize_note(notes[index],notes[index+1])
+    notes_iter = iter(enumerate(notes,0))
+    
+    for note_iter in notes_iter:
+        index,cur_note = note_iter
+        if index <len(notes)-1:
+            next_note = notes[index+1]
+            normalize_note(cur_note,next_note,notes_iter)     
         else:
-            normalize_note(notes[index]) 
-            normalized_collated_text+=collated_text[prev_end:]
+            normalize_note(cur_note)    
+    normalized_collated_text+=collated_text[prev_end:]
     return normalized_collated_text  
 
 
