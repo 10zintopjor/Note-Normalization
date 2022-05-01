@@ -144,13 +144,6 @@ def resolve_full_word_addition(note):
 
     return False   
 
-def get_option_span(note,option):
-    start,end = note["span"]
-    z = re.search(f"\{option}",note["real_note"])
-    option_start = start+z.start()
-    option_end = start+z.end()
-    return option_start,option_end
-
 
 def resolve_omission_with_sub(note):
     global normalized_collated_text,prev_end
@@ -243,6 +236,12 @@ def get_note_alt(note):
             options.append(note.replace(">",""))
     return options
 
+def get_option_span(note,option):
+    start,end = note["span"]
+    z = re.search(f"\{option}",note["real_note"])
+    option_start = start+z.start()
+    option_end = start+z.end()
+    return option_start,option_end
 
 def get_tokens(wt, text):
     tokens = wt.tokenize(text, split_affixes=False)
@@ -261,6 +260,7 @@ def replace_tsek(removed_tsek_altword,default_option):
         removed_tsek_altword+="་"
     return removed_tsek_altword   
 
+
 def get_indexes(note,index_sub):
     start,end = note['span']
     while collated_text[index_sub] != "་":
@@ -270,7 +270,6 @@ def get_indexes(note,index_sub):
         index_plus+=1    
 
     return index_plus,index_sub 
-
 
 def get_normalized_text(collated_text):
     global normalized_collated_text
