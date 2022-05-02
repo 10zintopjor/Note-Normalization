@@ -93,9 +93,10 @@ def resolve_msword_without(note):
     index_set = set()
     start,end = note["span"]
     left_syls = get_syls(note["left_context"])
-    note_options = note["alt_options"]
+    note_options = sort_options(note["alt_options"])
+    print(note_options)
     new_note = collated_text[start:end]
-    for note_option in reversed(note_options):  
+    for note_option in note_options:  
         option_start,option_end = note_option["span"]
         tup = do_loop_minus(note,note_option["note"])
         if tup!=None:
@@ -111,12 +112,18 @@ def resolve_msword_without(note):
         return True
 
     return False
+    
+def sort_options(options):
+    if len(options) == 1:
+        return options
+    else:
+        sorted_data = sorted(options, key=lambda x: x['span'][0],reverse=True) 
+    return sorted_data       
 
-
-        
 #resolve_msword_without and resolve_msword_split_by_marker clashing which one to be put first
 # almost solved doubt if option_start ==option end 
 #can default option be empty?
+
 
 def resolve_msword_split_by_marker(note):
     global normalized_collated_text,prev_end
@@ -130,7 +137,7 @@ def resolve_msword_split_by_marker(note):
 
     for note_option in reversed(note_options):
         option_start,option_end = note_option['span']
-        tup = do_loop_plus(note,note_option)
+        tup = do_loop_plus(note,note_option["note"])
         if tup!=None:
             word,i = tup
             new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
@@ -138,35 +145,14 @@ def resolve_msword_split_by_marker(note):
                 
     if new_note != collated_text[start:end] and len(list(index_set)) == 1:
         after_note_word = convert_syl_to_word(right_syls[:i+1])
-        normalized_collated_text+=collated_text[prev_end:start-len(note["default_option"])]+":"+collated_text[start-len(note["default_option"]):start]+after_note_word+new_note
+        new_default_word = collated_text[start-len(note["default_option"]):start]+after_note_word
+        normalized_collated_text+=collated_text[prev_end:start-len(note["default_option"])]+":"+new_default_word+new_note
         prev_end=end+len(after_note_word)
         return True
 
     return False
 
-def do_loop_minus(note,note_option,word=None):
-    i=-1
-    if word == None:
-        word = note_option.replace("+","")
-    left_syls = get_syls(note["left_context"])
-    while i >= -len(left_syls) and i >= -3:
-        word=left_syls[i]+word
-        if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
-            return word,i
-        i-=1
-    return None
-
-def do_loop_plus(note,note_option,word=None):
-    i=0
-    if word == None:
-        word = note_option.replace("།","་")
-    right_syls = get_syls(note["right_context"])
-    while i < len(right_syls) and i<3:
-        word = word+right_syls[i]
-        if get_token_pos(right_syls[i]) != "NON_WORD":
-            return word,i
-        i+=1
-    return None    
+    
     
 #almost done
 def resolve_full_word_addition(note):
@@ -209,24 +195,25 @@ def resolve_omission_with_sub(note):
         tup = do_loop_plus(note,note_options[0],word)
         if tup != None:
             after_note,i_plus = tup
-
         tup = do_loop_minus(note,note_options[0],word)
         if tup != None:
             berfore_note,i_sub = tup
 
-        pyld_start,_ = get_payload_span(note)    
         if (i_plus < len(right_syls) and i_plus<3) or (i_sub > -len(left_syls) and i_sub >= -3):
-            normalized_collated_text+= collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+berfore_note+after_note+">" 
+            pyld_start,_ = get_payload_span(note)    
+            new_default_word = berfore_note+note["default_option"]
+            normalized_collated_text+= collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+after_note+collated_text[start:pyld_start]+berfore_note+after_note+">" 
             prev_end = end+len(after_note)
             return True
     return False    
+
 
 #solved
 def resolve_long_omission_with_sub(note):
     global normalized_collated_text,prev_end
     if '.....' in note['real_note'] and "-" in note["real_note"]:
         _,end = note["span"]
-        pyld_start,pyld_end = get_payload_span(note)
+        pyld_start,_ = get_payload_span(note)
         z = re.match("(.*<)(«.*»)+\-([^.]+).....(.*)>",note['real_note'])
         first_word = z.group(3)
         last_word = z.group(4)
@@ -235,6 +222,7 @@ def resolve_long_omission_with_sub(note):
         return True
     return False
     
+
 #almost done
 def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
     global normalized_collated_text,prev_end 
@@ -263,6 +251,30 @@ def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
                 return True
                      
     return False         
+
+def do_loop_minus(note,note_option,word=None):
+    i=-1
+    if word == None:
+        word = note_option.replace("+","")
+    left_syls = get_syls(note["left_context"])
+    while i >= -len(left_syls) and i>=-3:
+        word=left_syls[i]+word
+        if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
+            return word,i
+        i-=1
+    return None
+
+def do_loop_plus(note,note_option,word=None):
+    i=0
+    if word == None:
+        word = note_option.replace("།","་")
+    right_syls = get_syls(note["right_context"])
+    while i < len(right_syls) and i<1:
+        word = word+right_syls[i]
+        if get_token_pos(right_syls[i]) != "NON_WORD":
+            return word,i
+        i+=1
+    return None
 
 def is_mono_syll(words):
     bool_set =set()
@@ -294,7 +306,7 @@ def is_valid_word(word):
 def get_payload_span(note):
     real_note = note['real_note']
     z = re.match("(.*<)(«.*»)+(.*)>",real_note)
-    start,end = note["span"]
+    start,_ = note["span"]
     pyld_start = start+len(z.group(1))+len(z.group(2))
     pyld_end = pyld_start + len(z.group(3))
     return pyld_start,pyld_end
@@ -354,6 +366,3 @@ if __name__ == "__main__":
     collated_text = Path('./test.txt').read_text(encoding='utf-8')
     normalized_collated_text = get_normalized_text(collated_text)
     Path("./gen_test.txt").write_text(normalized_collated_text)
-
-    
-
