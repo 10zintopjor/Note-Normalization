@@ -55,6 +55,8 @@ def resolve_mono_syllable(note):
             return True
     return False             
 
+
+#almost done
 def resolve_ms_with(note):
     global normalized_collated_text,prev_end
     if "+" in note["real_note"] or "-" in note["real_note"]:
@@ -81,7 +83,6 @@ def resolve_ms_with(note):
             prev_end = end
             return True
     return False    
-
 
 
 #Solved
@@ -149,8 +150,8 @@ def do_loop_minus(note,note_option,word=None):
         word = note_option.replace("+","")
     left_syls = get_syls(note["left_context"])
     while i >= -len(left_syls) and i >= -3:
+        word=left_syls[i]+word
         if get_token_pos(left_syls[i]) not in ["NON_WORD","PART"]:
-            word=left_syls[i]+word
             return word,i
         i-=1
     return None
@@ -161,8 +162,8 @@ def do_loop_plus(note,note_option,word=None):
         word = note_option.replace("།","་")
     right_syls = get_syls(note["right_context"])
     while i < len(right_syls) and i<3:
+        word = word+right_syls[i]
         if get_token_pos(right_syls[i]) != "NON_WORD":
-            word = word+right_syls[i]
             return word,i
         i+=1
     return None    
@@ -226,7 +227,7 @@ def resolve_long_omission_with_sub(note):
     if '.....' in note['real_note'] and "-" in note["real_note"]:
         _,end = note["span"]
         pyld_start,pyld_end = get_payload_span(note)
-        z = re.match("(.*<)(«.*»)+([^.]+).....(.*)>",note['real_note'])
+        z = re.match("(.*<)(«.*»)+\-([^.]+).....(.*)>",note['real_note'])
         first_word = z.group(3)
         last_word = z.group(4)
         normalized_collated_text += collated_text[prev_end:pyld_start]+first_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས་"+last_word+"<ཅེས་/ཞེས་/ཤེས་>པ་ནས་>"
@@ -250,11 +251,13 @@ def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
     if 1 in {len(cur_note_options),len(next_note_options)}:
         if '-' in cur_note_options[0] and '+' in next_note_options[0]:
             word = ""
-            tup = do_loop_minus(cur_note,cur_note_options,word)
+            tup = do_loop_minus(cur_note,cur_note_options[0],word)
             if tup!=None:
                 word,i = tup
                 next_pyld_start,next_pyld_end = get_payload_span(next_note)
-                normalized_collated_text += collated_text[prev_end:cur_start]+collated_text[next_start:next_pyld_start]+word+collated_text[next_pyld_start+1:next_pyld_end]+">"
+                before_default_word = convert_syl_to_word(left_syls[i:])
+                new_default_word = before_default_word+cur_note["default_option"]
+                normalized_collated_text += collated_text[prev_end:cur_start-len(new_default_word)]+":"+collated_text[cur_start-len(new_default_word):cur_start]+collated_text[next_start:next_pyld_start]+word+collated_text[next_pyld_start+1:next_pyld_end]+">"
                 prev_end = next_end
                 next(notes_iter)
                 return True
