@@ -112,7 +112,17 @@ def get_alt_options(note):
                 option_start=start+z.start()-1
                 option_end=start+z.end()    
             alt_options.append({"note":note,"span":(option_start,option_end)})
-    return alt_options        
+    
+    alt_options = sort_options(alt_options)
+    return alt_options   
+
+
+def sort_options(options):
+    if len(options) == 1:
+        return options
+    else:
+        sorted_data = sorted(options, key=lambda x: x['span'][0],reverse=True) 
+    return sorted_data   
 
 def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
     default_option = get_default_option(prev_chunk)

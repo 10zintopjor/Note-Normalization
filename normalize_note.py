@@ -68,7 +68,7 @@ def resolve_ms_with(note):
         left_syls = get_syls(note["left_context"])
         note_options = note["alt_options"]
         new_note = collated_text[start:end]
-        for note_option in reversed(note_options):
+        for note_option in note_options:
             option_start,option_end = note_option["span"]
             tup = do_loop_minus(note,note_option["note"])
             if tup!=None:
@@ -93,7 +93,7 @@ def resolve_msword_without(note):
     index_set = set()
     start,end = note["span"]
     left_syls = get_syls(note["left_context"])
-    note_options = sort_options(note["alt_options"])
+    note_options = note["alt_options"]
     print(note_options)
     new_note = collated_text[start:end]
     for note_option in note_options:  
@@ -112,13 +112,7 @@ def resolve_msword_without(note):
         return True
 
     return False
-    
-def sort_options(options):
-    if len(options) == 1:
-        return options
-    else:
-        sorted_data = sorted(options, key=lambda x: x['span'][0],reverse=True) 
-    return sorted_data       
+        
 
 #resolve_msword_without and resolve_msword_split_by_marker clashing which one to be put first
 # almost solved doubt if option_start ==option end 
@@ -135,7 +129,7 @@ def resolve_msword_split_by_marker(note):
     new_note = collated_text[start:end]
     index_set = set()
 
-    for note_option in reversed(note_options):
+    for note_option in note_options:
         option_start,option_end = note_option['span']
         tup = do_loop_plus(note,note_option["note"])
         if tup!=None:
@@ -163,7 +157,7 @@ def resolve_full_word_addition(note):
         new_note = collated_text[start:end]
         left_syls = get_syls(note["left_context"])
         index_set = set()
-        for note_option in reversed(note_options):
+        for note_option in note_options:
             if "+" in note_option:
                 tup = do_loop_minus(note,note_option)
                 if tup != None:
