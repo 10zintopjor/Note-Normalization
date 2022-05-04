@@ -390,7 +390,7 @@ def normalize_note(cur_note,next_note=None,notes_iter=None):
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end """
-        
+
 def get_normalized_text(collated_text):
     global normalized_collated_text
     notes = get_notes(collated_text)
@@ -408,6 +408,6 @@ def get_normalized_text(collated_text):
 
 
 if __name__ == "__main__":
-    collated_text = Path('./test.txt').read_text(encoding='utf-8')
+    collated_text = Path('./nalanda-text/ludup_text/collated_text/D1128_v001.txt').read_text(encoding='utf-8')
     normalized_collated_text = get_normalized_text(collated_text)
-    Path("./gen_test.txt").write_text(normalized_collated_text)
+    Path("./nalanda-text/ludup_text/normalized_text/D1128_v001.txt").write_text(normalized_collated_text)

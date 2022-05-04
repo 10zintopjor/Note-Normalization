@@ -103,7 +103,7 @@ def get_alt_options(note):
     default_option = note['default_option']
     note_options = note['note_options']
     for note in set(note_options.values()):
-        if note != default_option and note != "":
+        if note.replace("\n","") != default_option and note != "":
             z = re.search(note,real_note)
             if real_note[z.start()-1] !="+": 
                 option_start = start+z.start()
