@@ -23,24 +23,14 @@ from botok import WordTokenizer
 #def to detect is long addition skip 
 # to check re.search("\.+") in long additon or omission
 
+#resolve monosyllable #monosyllable clashing with full word addition
+# : with - solve
+#some refactoring inside the code
+#normalize the first 10 ludup text
 
 wt = WordTokenizer()
 normalized_collated_text = ""
-prev_end = 0
-
-def resolve_mono_syllable(note):      
-    global normalized_collated_text,prev_end
-    note_options = note["alt_options"]
-    if not is_mono_syll(note_options):
-        return False
-    if len(note_options) == 1:
-        start,end = note['span']
-        pyld_start,pyld_end = get_payload_span(note)
-        if is_valid_word(note_options[0]):
-            normalized_collated_text+=collated_text[prev_end:start-len(note['default_option'])]+":"+collated_text[start-len(note['default_option']):pyld_start]+note['default_option']+">"
-            prev_end = end
-            return True
-    return False             
+prev_end = 0        
 
 
 def resolve_ms_with(note):
@@ -57,7 +47,7 @@ def resolve_ms_with(note):
         for note_option in note_options:
             option_start,option_end = note_option["span"]
             tup = do_loop_minus_v1(note,note_option["note"])
-            if tup!=None:
+            if tup!=False:
                 word,i = tup
                 new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
                 index_set.add(i)
@@ -85,7 +75,7 @@ def resolve_msword_without(note):
     new_note = collated_text[start:end]
     for note_option in note_options:  
         ret_val = get_valid_word(note,note_option,new_note)
-        if ret_val != None:   
+        if ret_val != False:   
             new_note,char_walker = ret_val
             if char_walker < 0:
                 index_minus.add(char_walker)
@@ -114,17 +104,21 @@ def resolve_full_word_addition(note):
         index_set = set()
         for note_option in note_options:
             if "+" in note_option:
-                tup = do_loop_minus_v1(note,note_option)
-                if tup != None:
+                tup = do_loop_minus_v1(note,note_option,"")
+                if tup != False:
                     word,char_walker = tup
                     option_start,option_end = get_option_span(note,note_option)
-                    new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
+                    new_note = new_note[:option_start-start]+word+note_option.replace("+","")+new_note[option_end-start:]
                     index_set.add(char_walker)
                     
         if new_note != collated_text[start:end] and len(list(index_set)) == 1:
             left_syls = [token.text for token in get_tokens(note["left_context"])]
-            before_default_word = convert_syl_to_word(left_syls[char_walker:])
-            normalized_collated_text+=collated_text[prev_end:start-len(before_default_word)]+":"+collated_text[start-len(before_default_word):start]+new_note
+            new_default_word = convert_syl_to_word(left_syls[char_walker:])
+            if collated_text[start-len(note["default_option"])-1] == ":":
+                dem_text = collated_text[prev_end:start].replace(":","")
+                normalized_collated_text += dem_text[:-len(word)]+":"+dem_text[len(word):]+new_note
+            else:
+                normalized_collated_text+=collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+new_note
             prev_end = end
         return True
 
@@ -140,16 +134,25 @@ def resolve_omission_with_sub(note):
         left_syls = get_syls(note["left_context"])
         start,end = note["span"]
         tup = do_loop_plus_v1(note,note_options[0],word)
-        if tup != None:
+        if tup != False:
             after_note,i_plus = tup
         tup = do_loop_minus_v1(note,note_options[0],word)
-        if tup != None:
-            berfore_note,i_sub = tup
+        if tup != False:
+            before_note,i_sub = tup
+
+        left_syls = [token.text for token in get_tokens(note["left_context"])]
+        right_syls = [token.text for token in get_tokens(note["right_context"])]
 
         if (i_plus < len(right_syls) and i_plus<3) or (i_sub > -len(left_syls) and i_sub >= -3):
             pyld_start,_ = get_payload_span(note)    
-            new_default_word = berfore_note+note["default_option"]
-            normalized_collated_text+= collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+after_note+collated_text[start:pyld_start]+berfore_note+after_note+">" 
+            new_default_word = before_note+note["default_option"]
+            if collated_text[start-len(note["default_option"])-1] == ":":
+                if before_note != None and before_note != '།':
+                    normalized_collated_text+=collated_text[prev_end:start-len(note["default_option"])-len(before_note)-1]+":"+collated_text[start-len(note["default_option"])-len(before_note)-1:start].replace(":","")+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
+                else:    
+                    normalized_collated_text+=collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
+            else:
+                normalized_collated_text+= collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
             prev_end = end+len(after_note)
             return True
     return False    
@@ -187,11 +190,11 @@ def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
         if '-' in cur_note_options[0] and '+' in next_note_options[0]:
             word = ""
             tup = do_loop_minus_v1(cur_note,cur_note_options[0],word)
-            if tup!=None:
-                word,i = tup
+            if tup!=False:
+                word,char_walker = tup
                 next_pyld_start,next_pyld_end = get_payload_span(next_note)
                 left_syls = [token.text for token in get_tokens(cur_note["left_context"])]
-                before_default_word = convert_syl_to_word(left_syls[i:])
+                before_default_word = convert_syl_to_word(left_syls[char_walker:])
                 new_default_word = before_default_word+cur_note["default_option"]
                 normalized_collated_text += collated_text[prev_end:cur_start-len(new_default_word)]+":"+collated_text[cur_start-len(new_default_word):cur_start]+collated_text[next_start:next_pyld_start]+word+collated_text[next_pyld_start+1:next_pyld_end]+">"
                 prev_end = next_end
@@ -205,18 +208,19 @@ def get_valid_word(note,note_option,new_note):
     option_start,option_end = note_option["span"]
     tup_minus = do_loop_minus(note,note_option["note"])
     tup_plus = do_loop_plus(note,note_option["note"])
-    if tup_minus == None and tup_plus == None:
-        return None
-    elif tup_plus == None:
+    if tup_minus == False and tup_plus == False:
+        return False
+    elif tup_plus == False:
         word,char_walker = tup_minus
         new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
         return new_note,char_walker
-    elif tup_minus == None:
+    elif tup_minus == False:
         word,char_walker = tup_plus
         new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
         return new_note,char_walker
 
-    return None
+    return False
+
 
 def is_word(word):
     tokens = get_tokens(word.replace("།",""))
@@ -234,7 +238,7 @@ def do_loop_minus(note,note_option,word=None):
         if is_word(word):
             return word,char_walker
         char_walker-=1
-    return None
+    return False
 
 def do_loop_minus_v1(note,note_option,word=None):
     char_walker=-1
@@ -246,7 +250,7 @@ def do_loop_minus_v1(note,note_option,word=None):
         if get_token_pos(left_syls[char_walker].text) not in ["NON_WORD","PART"]:
             return word,char_walker
         char_walker-=1
-    return None
+    return False
 
 def get_token_pos(syl):
     tokens = get_tokens(syl) 
@@ -263,7 +267,7 @@ def do_loop_plus(note,note_option,word=None):
         if is_word(word):
             return word,i
         i+=1
-    return None
+    return False
 
 def do_loop_plus_v1(note,note_option,word=None):
     i=0
@@ -275,18 +279,8 @@ def do_loop_plus_v1(note,note_option,word=None):
         if get_token_pos(right_syls[i].text) not in ["NON_WORD"]:
             return word,i
         i+=1
-    return None
-
-def is_mono_syll(words):
-    bool_set =set()
-    for word in words:
-        syl = get_syls(word['note'])
-        if len(syl) == 1:
-            bool_set.add(True)
-    if False in bool_set:
-        return False
-    else:
-        return True         
+    return False
+       
 
 
 def convert_syl_to_word(syls):
@@ -333,13 +327,39 @@ def get_tokens(text):
     tokens = wt.tokenize(text, split_affixes=False)
     return tokens
 
+def is_mono_syll(words):
+    bool_set =set()
+    for word in words:
+        syl = get_syls(word['note'])
+        if len(syl) == 1:
+            bool_set.add(True)
+    if False in bool_set:
+        return False
+    else:
+        return True
 
-def replace_tsek(removed_tsek_altword,default_option):
-    if removed_tsek_altword[-1] == "།" and default_option[-1] == "་":
-        removed_tsek_altword = removed_tsek_altword[:-1]+"་"
-    elif removed_tsek_altword[-1] != "་" and default_option[-1] == "་":
-        removed_tsek_altword+="་"
-    return removed_tsek_altword   
+def is_mono_syllable(note):
+    global normalized_collated_text,prev_end
+    note_options = note["alt_options"]
+    bool_set = set()
+    for note_option in note_options:
+        tup = do_loop_minus(note,note_option["note"])
+        tup2 = do_loop_plus(note,note_option["note"])
+        #tup4 = do_loop_minus_v1(note,note_option["note"])
+        #tup3 = do_loop_plus_v1(note,note_option["note"])
+        bool_set.add(tup)
+        bool_set.add(tup2)
+        #bool_set.add(tup3)
+        #bool_set.add(tup4)
+
+
+
+    if len(bool_set) == 1 and False in bool_set:
+        return True 
+    
+    return False
+
+
 
 def normalize_note(cur_note,next_note=None,notes_iter=None):
     global normalized_collated_text,prev_end
@@ -365,7 +385,12 @@ def normalize_note(cur_note,next_note=None,notes_iter=None):
         start,end = cur_note["span"]
         normalized_collated_text+=collated_text[prev_end:end]
         prev_end = end
-
+    """ elif is_mono_syllable(cur_note):
+        print("Mono syll")
+        start,end = cur_note["span"]
+        normalized_collated_text+=collated_text[prev_end:end]
+        prev_end = end """
+        
 def get_normalized_text(collated_text):
     global normalized_collated_text
     notes = get_notes(collated_text)
