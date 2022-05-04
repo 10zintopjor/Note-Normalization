@@ -122,7 +122,8 @@ def resolve_full_word_addition(note):
                     index_set.add(char_walker)
                     
         if new_note != collated_text[start:end] and len(list(index_set)) == 1:
-            before_default_word = convert_syl_to_word(left_syls[char_walker:])+note["default_option"]
+            left_syls = [token.text for token in get_tokens(note["left_context"])]
+            before_default_word = convert_syl_to_word(left_syls[char_walker:])
             normalized_collated_text+=collated_text[prev_end:start-len(before_default_word)]+":"+collated_text[start-len(before_default_word):start]+new_note
             prev_end = end
         return True
@@ -189,6 +190,7 @@ def resolve_long_add_with_sub(cur_note,next_note,notes_iter):
             if tup!=None:
                 word,i = tup
                 next_pyld_start,next_pyld_end = get_payload_span(next_note)
+                left_syls = [token.text for token in get_tokens(cur_note["left_context"])]
                 before_default_word = convert_syl_to_word(left_syls[i:])
                 new_default_word = before_default_word+cur_note["default_option"]
                 normalized_collated_text += collated_text[prev_end:cur_start-len(new_default_word)]+":"+collated_text[cur_start-len(new_default_word):cur_start]+collated_text[next_start:next_pyld_start]+word+collated_text[next_pyld_start+1:next_pyld_end]+">"
