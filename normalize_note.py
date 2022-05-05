@@ -1,10 +1,6 @@
-from email.policy import default
-from http.client import IM_USED
-from operator import index, truediv
 import re
 from pathlib import Path
-from socket import AI_PASSIVE
-from requests import patch
+
 from utils import get_notes,get_syls
 from botok import WordTokenizer
 
@@ -402,7 +398,7 @@ def get_normalized_text(collated_text):
             next_note = notes[index+1]
             normalize_note(cur_note,next_note,notes_iter)     
         else:
-            normalize_note(cur_note)    
+            normalize_note(cur_note)   
     normalized_collated_text+=collated_text[prev_end:]
     return normalized_collated_text  
 
