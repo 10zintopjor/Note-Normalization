@@ -408,6 +408,6 @@ def get_normalized_text(collated_text):
 
 
 if __name__ == "__main__":
-    collated_text = Path('./nalanda-text/ludup_text/collated_text/D1128_v001.txt').read_text(encoding='utf-8')
+    collated_text = Path('./collated_text/D4274_v108.txt').read_text(encoding='utf-8')
     normalized_collated_text = get_normalized_text(collated_text)
-    Path("./nalanda-text/ludup_text/normalized_text/D1128_v001.txt").write_text(normalized_collated_text)
+    Path("./normalized_text/D4274_v108.txt").write_text(normalized_collated_text)
