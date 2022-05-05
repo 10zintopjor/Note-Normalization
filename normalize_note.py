@@ -126,6 +126,11 @@ def resolve_omission_with_sub(note):
     note_options = get_note_alt(note)
     if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1:
         word = ""
+        before_note = ""
+        after_note = ""
+
+        i_plus = 10
+        i_sub = -10
         right_syls = get_syls(note["right_context"])
         left_syls = get_syls(note["left_context"])
         start,end = note["span"]
@@ -143,10 +148,10 @@ def resolve_omission_with_sub(note):
             pyld_start,_ = get_payload_span(note)    
             new_default_word = before_note+note["default_option"]
             if collated_text[start-len(note["default_option"])-1] == ":":
-                if before_note != None and before_note != '།':
+                if before_note != "" and before_note != '།':
                     normalized_collated_text+=collated_text[prev_end:start-len(note["default_option"])-len(before_note)-1]+":"+collated_text[start-len(note["default_option"])-len(before_note)-1:start].replace(":","")+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
                 else:    
-                    normalized_collated_text+=collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
+                    normalized_collated_text+=collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+before_note.replace('།','')+after_note+">" 
             else:
                 normalized_collated_text+= collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+after_note+collated_text[start:pyld_start]+before_note+after_note+">" 
             prev_end = end+len(after_note)
@@ -394,6 +399,7 @@ def get_normalized_text(collated_text):
     
     for note_iter in notes_iter:
         index,cur_note = note_iter
+        print(cur_note["real_note"])
         if index <len(notes)-1:
             next_note = notes[index+1]
             normalize_note(cur_note,next_note,notes_iter)     
