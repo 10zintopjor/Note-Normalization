@@ -217,7 +217,7 @@ def get_left_context_valid_word(note,note_option,word=None):
     while char_walker >= -len(left_syls) and char_walker>=-3:
         word=left_syls[char_walker]+word
         if is_word(word):
-            if left_syls[char_walker][0] == "།":
+            if left_syls[char_walker][0] in ("།","། །"):
                 return word[1:],char_walker
             return word,char_walker
         char_walker-=1
@@ -229,9 +229,10 @@ def get_left_context_valid_word_v1(note,note_option,word=None):
         word = note_option.replace("+","")
     left_syls = get_tokens(note["left_context"])
     while char_walker >= -len(left_syls) and char_walker>=-3:
+        prev_word = word
         word=left_syls[char_walker].text+word
-        if left_syls[char_walker].text == "།":
-            break
+        if left_syls[char_walker].text in ("།","། །"):
+            return prev_word,char_walker+1
         elif get_token_pos(left_syls[char_walker].text) not in ["NON_WORD","PART"]:
             return word,char_walker
         char_walker-=1
