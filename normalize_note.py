@@ -4,30 +4,11 @@ from pathlib import Path
 from utils import get_notes,get_syls
 from botok import WordTokenizer
 
-#difference between fullword and midword
-#ms split by marker and ms without clashing
-#mono syllable clashing with ms words skip
-#resolve_long_omission_with_sub  ཅེས་/ཞེས་/ཤེས་>
-
-
-
-#test on 1118
-#merge mono syllable clashing with ms words Done 
-#use token length to checkc word validity Done
-#skip monosyllable
-#check is mono or mutlti syllable first
-#def to detect is long addition skip 
-# to check re.search("\.+") in long additon or omission
-
-#resolve monosyllable #monosyllable clashing with full word addition
-# : with - solve
-#some refactoring inside the code
-#normalize the first 10 ludup text
-
 #ISSUES
 #(༤) <«པེ་»«སྣར་»དྲི་མ་སྲེག> །དེ་ཉིད་འོད་གསལ་མ་ཡིན་ནོ། shey after space
 #།ཆོས་ཉིད་སྟོང་པ་མཐོང་གྱུར་ནས།(༤) <«པེ་»«སྣར་»+པདྨ་ཆེན་པོའི་རང་བཞིན་གྱིས།> shey in note
 #།བརྟེན་ནས་འབྱུང་བར་གྱུར་པ་(༥) <«པེ་»«སྣར་»འགྱུར་བ་>དང་། : not present,default word error
+
 wt = WordTokenizer()
 
 
@@ -361,8 +342,6 @@ def is_mono_syllable(note):
         #bool_set.add(tup3)
         #bool_set.add(tup4)
 
-
-
     if len(bool_set) == 1 and False in bool_set:
         return True 
     
@@ -390,7 +369,7 @@ def normalize_note(collated_text,prev_end,cur_note,next_note=None,notes_iter=Non
         normalized_chunk,prev_end = tup
         print("4")
     else:
-        start,end = cur_note["span"]
+        _,end = cur_note["span"]
         normalized_chunk=collated_text[prev_end:end]
         prev_end = end
 
