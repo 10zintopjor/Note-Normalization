@@ -97,7 +97,7 @@ def resolve_full_word_addition(collated_text,prev_end,note):
             else:
                 normalized_chunk =collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+new_note
             prev_end = end
-        return normalized_chunk,prev_end
+            return normalized_chunk,prev_end
 
     return False   
 
