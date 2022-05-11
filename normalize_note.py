@@ -1,8 +1,15 @@
 from email import charset
+from importlib.resources import read_text
 import re
 from pathlib import Path
 from utils import get_notes,get_syls
 from botok import WordTokenizer
+import logging
+
+logging.basicConfig(filename="err.log",format='%(message)s')
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+ 
 
 #ISSUES
 #(༤) <«པེ་»«སྣར་»དྲི་མ་སྲེག> །དེ་ཉིད་འོད་གསལ་མ་ཡིན་ནོ། shey after space
@@ -24,7 +31,7 @@ def resolve_ms_with(collated_text,prev_end,note):
         new_note = collated_text[start:end]
         for note_option in note_options:
             option_start,option_end = note_option["span"]
-            tup = get_left_context_valid_word_v1(note,note_option["note"])
+            tup = get_left_context_valid_word(note,note_option["note"])
             if tup!=False:
                 word,i = tup
                 new_note = new_note[:option_start-start]+word+new_note[option_end-start:]
@@ -81,7 +88,7 @@ def resolve_full_word_addition(collated_text,prev_end,note):
         index_set = set()
         for note_option in note_options:
             if "+" in note_option:
-                tup = get_left_context_valid_word_v1(note,note_option,"")
+                tup = get_left_context_valid_word(note,note_option,"")
                 if tup != False:
                     word,char_walker = tup
                     option_start,option_end = get_option_span(note,note_option)
@@ -104,20 +111,19 @@ def resolve_full_word_addition(collated_text,prev_end,note):
 
 def resolve_omission_with_sub(collated_text,prev_end,note):
     note_options = get_note_alt(note)
-    if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1 and "(" not in note["real_note"]:
+    if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1 and not re.search(".*<.*\(.*\).*>",note["real_note"]):
         word = ""
         before_note = ""
         after_note = ""
-
         i_plus = 10
         i_sub = -10
         right_syls = get_syls(note["right_context"])
         left_syls = get_syls(note["left_context"])
         start,end = note["span"]
-        tup = get_right_context_valid_word_v1(note,note_options[0],word)
+        tup = get_right_context_valid_word(note,note_options[0],word)
         if tup != False:
             after_note,i_plus = tup
-        tup = get_left_context_valid_word_v1(note,note_options[0],word)
+        tup = get_left_context_valid_word(note,note_options[0],word)
         if tup != False:
             before_note,i_sub = tup
 
@@ -140,10 +146,22 @@ def resolve_omission_with_sub(collated_text,prev_end,note):
 
     return False    
 
+def side_note_valid_word(note,note_option):
+    
+    left_syls = get_syls(note["left_context"])
+    right_syls = get_syls(note["right_context"])
+    left_index = 3 if len(left_syls) >= 3 else len(left_syls)
+    right_index = 3 if len(right_syls) >= 3 else len(right_syls)
+
+    for i in range(left_index-1,-1,-1):
+        for j in range(0,right_syls):
+            word = left_syls[i:]+right_syls[:j+1]
+            if is_word(word):
+                return word,i,j
 
 
 def resolve_long_omission_with_sub(collated_text,prev_end,note):
-    if re.search("\.+",note['real_note']) and "-" in note["real_note"] and "(" not in note["real_note"]:
+    if re.search("\.+",note['real_note']) and "-" in note["real_note"] and not re.search(".*<.*\(.*\).*>",note["real_note"]):
         _,end = note["span"]
         pyld_start,_ = get_payload_span(note)
         z = re.match("(.*<)(«.*»)+\-([^.]+).....(.*)>",note['real_note'])
@@ -170,7 +188,7 @@ def resolve_long_add_with_sub(collated_text,prev_end,cur_note,next_note,notes_it
     if 1 in {len(cur_note_options),len(next_note_options)}:
         if '-' in cur_note_options[0] and '+' in next_note_options[0]:
             word = ""
-            tup = get_left_context_valid_word_v1(cur_note,cur_note_options[0],word)
+            tup = get_left_context_valid_word(cur_note,cur_note_options[0],word)
             if tup!=False:
                 word,char_walker = tup
                 next_pyld_start,next_pyld_end = get_payload_span(next_note)
@@ -214,7 +232,7 @@ def get_left_context_valid_word(note,note_option,word=None):
     if word == None:
         word = note_option.replace("+","")
     left_syls = get_syls(note["left_context"])
-    if left_syls[-1][-1].strip() in ("།"):
+    if len(left_syls) == 0 or left_syls[-1][-1].strip() in ("།"):
         return False
     while char_walker >= -len(left_syls) and char_walker>=-3:
         word=left_syls[char_walker]+word
@@ -230,7 +248,7 @@ def get_left_context_valid_word_v1(note,note_option,word=None):
     if word == None:
         word = note_option.replace("+","")
     left_syls = get_tokens(note["left_context"])
-    if left_syls[-1].text in ("།","། །"):
+    if len(left_syls) == 0 or left_syls[-1].text in ("།","། །"):
         return False
     while char_walker >= -len(left_syls) and char_walker>=-3:
         prev_word = word
@@ -251,7 +269,10 @@ def get_right_context_valid_word(note,note_option,word=None):
     char_walker=0
     if word == None:
         word = note_option.replace("།","་")
+        
     right_syls = get_syls(note["right_context"])
+    if len(right_syls) == 0 or right_syls[-1][-1].strip() in ("།"):
+        return False
     while char_walker < len(right_syls) and char_walker<3:
         word = word+right_syls[char_walker]          
         if is_word(word):
@@ -267,6 +288,8 @@ def get_right_context_valid_word_v1(note,note_option,word=None):
     if word == None:
         word = note_option.replace("།","་")
     right_syls = get_tokens(note["right_context"])
+    if len(right_syls) == 0 or right_syls[-1].text in ("།","། །"):
+        return False
     while char_walker < len(right_syls) and char_walker<3:
         word = word+right_syls[char_walker].text
         if right_syls[char_walker].text == "།":
@@ -283,14 +306,6 @@ def convert_syl_to_word(syls):
     for syl in syls:
         word += syl
     return word
-
-
-def is_valid_word(word):
-    tokens = get_tokens(wt, word['note'])
-    for token in tokens:
-        if token.pos != "NON_WORD":
-            return True
-    return False   
 
 
 def get_payload_span(note):
@@ -385,10 +400,10 @@ def get_normalized_text(collated_text):
     normalized_collated_text = ""
     prev_end = 0
     notes = get_notes(collated_text)
-    notes_iter = iter(enumerate(notes,0))
-    
+    notes_iter = iter(enumerate(notes,0)) 
     for note_iter in notes_iter:
         index,cur_note = note_iter
+        print(cur_note["real_note"])
         if index <len(notes)-1:
             next_note = notes[index+1]
             normalized_chunk,cur_end = normalize_note(collated_text,prev_end,cur_note,next_note,notes_iter)     
@@ -403,6 +418,17 @@ def get_normalized_text(collated_text):
 
 
 if __name__ == "__main__":
-    collated_text = Path('./test.txt').read_text(encoding='utf-8')
+    paths = Path("./clean_base_collated_text").iterdir()
+    collated_text = Path("./test.txt").read_text(encoding="utf-8")
     normalized_collated_text = get_normalized_text(collated_text)
     Path("./gen_test.txt").write_text(normalized_collated_text)
+
+    """ for path in paths:
+        collated_text = path.read_text(encoding='utf-8')
+        try:
+            normalized_collated_text = get_normalized_text(collated_text)
+            logger.info(str(path)+"DONE")
+            
+        except:
+            logger.info(str(path)+"ERR") """
+                
