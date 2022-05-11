@@ -126,6 +126,7 @@ def sort_options(options):
 
 def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
     default_option = get_default_option(prev_chunk)
+    default_option = clean_default_option(default_option)
     prev_chunk = update_left_context(default_option, prev_chunk, note_chunk)
     prev_context = get_context(prev_chunk, type_= 'left')
     next_context = get_context(next_chunk, type_= 'right')
@@ -135,7 +136,7 @@ def get_note_sample(prev_chunk, note_chunk, next_chunk,collated_text,prev_end):
     note = {
         "left_context":prev_context,
         "right_context":next_context,
-        "default_option":clean_default_option(default_option),
+        "default_option": default_option,
         "default_clone_option":default_option,
         "note_options":note_options,
         "span":note_span,

@@ -104,7 +104,7 @@ def resolve_full_word_addition(collated_text,prev_end,note):
 
 def resolve_omission_with_sub(collated_text,prev_end,note):
     note_options = get_note_alt(note)
-    if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1:
+    if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1 and "(" not in note["real_note"]:
         word = ""
         before_note = ""
         after_note = ""
@@ -143,7 +143,7 @@ def resolve_omission_with_sub(collated_text,prev_end,note):
 
 
 def resolve_long_omission_with_sub(collated_text,prev_end,note):
-    if re.search("\.+",note['real_note']) and "-" in note["real_note"] :
+    if re.search("\.+",note['real_note']) and "-" in note["real_note"] and "(" not in note["real_note"]:
         _,end = note["span"]
         pyld_start,_ = get_payload_span(note)
         z = re.match("(.*<)(«.*»)+\-([^.]+).....(.*)>",note['real_note'])
@@ -214,10 +214,12 @@ def get_left_context_valid_word(note,note_option,word=None):
     if word == None:
         word = note_option.replace("+","")
     left_syls = get_syls(note["left_context"])
+    if left_syls[-1][-1].strip() in ("།"):
+        return False
     while char_walker >= -len(left_syls) and char_walker>=-3:
         word=left_syls[char_walker]+word
         if is_word(word):
-            if left_syls[char_walker][0] in ("།","། །"):
+            if left_syls[char_walker][-1].strip() in ("།"):
                 return word[1:],char_walker
             return word,char_walker
         char_walker-=1
@@ -228,6 +230,8 @@ def get_left_context_valid_word_v1(note,note_option,word=None):
     if word == None:
         word = note_option.replace("+","")
     left_syls = get_tokens(note["left_context"])
+    if left_syls[-1].text in ("།","། །"):
+        return False
     while char_walker >= -len(left_syls) and char_walker>=-3:
         prev_word = word
         word=left_syls[char_walker].text+word
