@@ -1,7 +1,10 @@
 import re
 from typing import DefaultDict
 import yaml
+from botok import WordTokenizer
 
+
+wt = WordTokenizer()
 
 def get_syls(text):
     chunks = re.split('(་|།།|།)',text)
@@ -319,3 +322,63 @@ def  get_prev_note_span(notes, num):
         return None, None
     else:
         return notes[num-1]['span']
+
+
+
+def get_tokens(text):
+    tokens = wt.tokenize(text, split_affixes=False)
+    return tokens
+
+
+def get_option_span(note,option):
+    start,end = note["span"]
+    z = re.search(f"\{option}",note["real_note"])
+    option_start = start+z.start()
+    option_end = start+z.end()
+    return option_start,option_end
+
+
+def get_note_alt(note):
+    note_parts = re.split('(«པེ་»|«སྣར་»|«སྡེ་»|«ཅོ་»|«པེ»|«སྣར»|«སྡེ»|«ཅོ»)',note['real_note'])
+    notes = note_parts[2::2]
+    options = []
+    for note in notes:
+        if note != "":
+            options.append(note.replace(">",""))
+    return options
+
+
+def get_payload_span(note):
+    real_note = note['real_note']
+    z = re.match("(.*<)(«.*»)+(.*)>",real_note)
+    start,_ = note["span"]
+    pyld_start = start+len(z.group(1))+len(z.group(2))
+    pyld_end = pyld_start + len(z.group(3))
+    return pyld_start,pyld_end
+
+
+def convert_syl_to_word(syls):
+    word = ""
+    for syl in syls:
+        word += syl
+    return word
+
+
+def get_token_pos(syl):
+    tokens = get_tokens(syl) 
+    for token in tokens:
+        return token.pos   
+
+
+def is_word(word):
+    tokens = get_tokens(word.replace("།",""))
+    if len(tokens) == 1:
+        return True
+    return False
+
+def sum_up_syll(syls):
+    word =""
+    for syl in syls:
+        word+=syl
+
+    return word             

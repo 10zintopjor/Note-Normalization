@@ -2,21 +2,12 @@ from email import charset
 from importlib.resources import read_text
 import re
 from pathlib import Path
-from utils import get_notes,get_syls
-from botok import WordTokenizer
+from utils import *
 import logging
 
 logging.basicConfig(filename="err.log",format='%(message)s')
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
- 
-
-#ISSUES
-#(༤) <«པེ་»«སྣར་»དྲི་མ་སྲེག> །དེ་ཉིད་འོད་གསལ་མ་ཡིན་ནོ། shey after space
-#།ཆོས་ཉིད་སྟོང་པ་མཐོང་གྱུར་ནས།(༤) <«པེ་»«སྣར་»+པདྨ་ཆེན་པོའི་རང་བཞིན་གྱིས།> shey in note
-#།བརྟེན་ནས་འབྱུང་བར་གྱུར་པ་(༥) <«པེ་»«སྣར་»འགྱུར་བ་>དང་། : not present,default word error
-
-wt = WordTokenizer()
 
 
 def resolve_ms_with(collated_text,prev_end,note):
@@ -138,28 +129,7 @@ def resolve_omission_with_sub(collated_text,prev_end,note):
     return False
 
 
-def side_note_valid_word(note):
-    
-    left_syls = get_syls(note["left_context"])
-    right_syls = get_syls(note["right_context"])
-    left_index = 3 if len(left_syls) >= 3 else len(left_syls)
-    right_index = 3 if len(right_syls) >= 3 else len(right_syls)
 
-    for i in range(left_index-1,-1,-1):
-        for j in range(0,right_index):
-            left_word = sum_up_syll(left_syls[i:])
-            right_word = sum_up_syll(right_syls[:j+1])
-            word =left_word + right_word
-            if is_word(word):
-                return left_word,right_word
-
-
-def sum_up_syll(syls):
-    word =""
-    for syl in syls:
-        word+=syl
-
-    return word
 
 
 def resolve_long_omission_with_sub(collated_text,prev_end,note):
@@ -223,11 +193,21 @@ def get_valid_word(note,note_option,new_note):
     return False
 
 
-def is_word(word):
-    tokens = get_tokens(word.replace("།",""))
-    if len(tokens) == 1:
-        return True
-    return False
+def side_note_valid_word(note):
+    
+    left_syls = get_syls(note["left_context"])
+    right_syls = get_syls(note["right_context"])
+    left_index = 3 if len(left_syls) >= 3 else len(left_syls)
+    right_index = 3 if len(right_syls) >= 3 else len(right_syls)
+
+    for i in range(left_index-1,-1,-1):
+        for j in range(0,right_index):
+            left_word = sum_up_syll(left_syls[i:])
+            right_word = sum_up_syll(right_syls[:j+1])
+            word =left_word + right_word
+            if is_word(word):
+                return left_word,right_word
+
 
 def get_left_context_valid_word(note,note_option,word=None):
     char_walker=-1
@@ -245,27 +225,7 @@ def get_left_context_valid_word(note,note_option,word=None):
         char_walker-=1
     return False
 
-def get_left_context_valid_word_v1(note,note_option,word=None):
-    char_walker=-1
-    if word == None:
-        word = note_option.replace("+","")
-    left_syls = get_tokens(note["left_context"])
-    if len(left_syls) == 0 or left_syls[-1].text in ("།","། །"):
-        return False
-    while char_walker >= -len(left_syls) and char_walker>=-3:
-        prev_word = word
-        word=left_syls[char_walker].text+word
-        if left_syls[char_walker].text in ("།","། །"):
-            return prev_word,char_walker+1
-        elif get_token_pos(left_syls[char_walker].text) not in ["NON_WORD","PART"]:
-            return word,char_walker
-        char_walker-=1
-    return False
 
-def get_token_pos(syl):
-    tokens = get_tokens(syl) 
-    for token in tokens:
-        return token.pos
 
 def get_right_context_valid_word(note,note_option,word=None):
     char_walker=0
@@ -283,90 +243,6 @@ def get_right_context_valid_word(note,note_option,word=None):
             else:
                 return word,char_walker
         char_walker+=1
-    return False
-
-def get_right_context_valid_word_v1(note,note_option,word=None):
-    char_walker=0
-    if word == None:
-        word = note_option.replace("།","་")
-    right_syls = get_tokens(note["right_context"])
-    if len(right_syls) == 0 or right_syls[-1].text in ("།","། །"):
-        return False
-    while char_walker < len(right_syls) and char_walker<3:
-        word = word+right_syls[char_walker].text
-        if right_syls[char_walker].text == "།":
-            break
-        elif get_token_pos(right_syls[char_walker].text) not in ["NON_WORD"]:
-            return word,char_walker
-        char_walker+=1
-    return False
-       
-
-
-def convert_syl_to_word(syls):
-    word = ""
-    for syl in syls:
-        word += syl
-    return word
-
-
-def get_payload_span(note):
-    real_note = note['real_note']
-    z = re.match("(.*<)(«.*»)+(.*)>",real_note)
-    start,_ = note["span"]
-    pyld_start = start+len(z.group(1))+len(z.group(2))
-    pyld_end = pyld_start + len(z.group(3))
-    return pyld_start,pyld_end
-
-
-def get_note_alt(note):
-    note_parts = re.split('(«པེ་»|«སྣར་»|«སྡེ་»|«ཅོ་»|«པེ»|«སྣར»|«སྡེ»|«ཅོ»)',note['real_note'])
-    notes = note_parts[2::2]
-    options = []
-    for note in notes:
-        if note != "":
-            options.append(note.replace(">",""))
-    return options
-
-def get_option_span(note,option):
-    start,end = note["span"]
-    z = re.search(f"\{option}",note["real_note"])
-    option_start = start+z.start()
-    option_end = start+z.end()
-    return option_start,option_end
-
-def get_tokens(text):
-    tokens = wt.tokenize(text, split_affixes=False)
-    return tokens
-
-def is_mono_syll(words):
-    bool_set =set()
-    for word in words:
-        syl = get_syls(word['note'])
-        if len(syl) == 1:
-            bool_set.add(True)
-    if False in bool_set:
-        return False
-    else:
-        return True
-
-def is_mono_syllable(note):
-    global normalized_collated_text,prev_end
-    note_options = note["alt_options"]
-    bool_set = set()
-    for note_option in note_options:
-        tup = get_left_context_valid_word(note,note_option["note"])
-        tup2 = get_right_context_valid_word(note,note_option["note"])
-        #tup4 = get_left_context_valid_word_v1(note,note_option["note"])
-        #tup3 = get_right_context_valid_word_v1(note,note_option["note"])
-        bool_set.add(tup)
-        bool_set.add(tup2)
-        #bool_set.add(tup3)
-        #bool_set.add(tup4)
-
-    if len(bool_set) == 1 and False in bool_set:
-        return True 
-    
     return False
 
 
