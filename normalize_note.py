@@ -112,41 +112,33 @@ def resolve_full_word_addition(collated_text,prev_end,note):
 def resolve_omission_with_sub(collated_text,prev_end,note):
     note_options = get_note_alt(note)
     if "-" in note["real_note"] and "+" not in note["real_note"] and len(note_options) == 1 and not re.search(".*<.*\(.*\).*>",note["real_note"]):
-        word = ""
-        before_note = ""
-        after_note = ""
-        i_plus = 10
-        i_sub = -10
-        right_syls = get_syls(note["right_context"])
-        left_syls = get_syls(note["left_context"])
         start,end = note["span"]
-        tup = get_right_context_valid_word(note,note_options[0],word)
-        if tup != False:
-            after_note,i_plus = tup
-        tup = get_left_context_valid_word(note,note_options[0],word)
-        if tup != False:
-            before_note,i_sub = tup
+        pyld_start,pyld_end = get_payload_span(note)
+        tup = side_note_valid_word(note)
+        if not tup:
+            x=1 if collated_text[start-len(note["default_option"])-1] == ":" else 0
+            left_tokens = get_tokens(note["left_context"])
+            new_payload = left_tokens[-1].text
+            normalized_payload = new_payload[:-1] if new_payload == "།" else new_payload            
+            new_left_context = collated_text[prev_end:start-len(note["default_option"])-x-len(left_tokens[-1].text)]
+            new_default_word = collated_text[start-len(note["default_option"])-x-len(left_tokens[-1].text):start].replace(":","")
+            normalized_chunk = new_left_context+":"+new_default_word+collated_text[start:pyld_start]+normalized_payload+">"
+            return normalized_chunk,end
 
-        left_syls = [token.text for token in get_tokens(note["left_context"])]
-        right_syls = [token.text for token in get_tokens(note["right_context"])]
+        left_word,right_word = tup
+        new_payload = left_word+right_word
+        normalized_payload = new_payload[:-1] if new_payload == "།" else new_payload
+        x=1 if collated_text[start-len(note["default_option"])-1] == ":" else 0
+        new_left_context = collated_text[prev_end:start-len(note["default_option"])-len(left_word)-x]
+        new_default_word = collated_text[start-len(note["default_option"])-len(left_word)-x:start].replace(":","")+right_word
+        normalized_chunk =new_left_context +":"+ new_default_word+collated_text[start:pyld_start]+normalized_payload+">" 
+        prev_end = end +len(right_word)
+        return normalized_chunk,prev_end
 
-        if (i_plus < len(right_syls) and i_plus<3) or (i_sub > -len(left_syls) and i_sub >= -3):
-            pyld_start,_ = get_payload_span(note)    
-            new_default_word = before_note+note["default_option"]
-            normalized_before_note = before_note[:-1] if collated_text[end] == "།" else before_note
-            if collated_text[start-len(note["default_option"])-1] == ":":
-                if before_note != "" and before_note != '།':
-                    normalized_chunk =collated_text[prev_end:start-len(note["default_option"])-len(before_note)-1]+":"+collated_text[start-len(note["default_option"])-len(before_note)-1:start].replace(":","")+after_note+collated_text[start:pyld_start]+normalized_before_note+after_note+">" 
-                else:    
-                    normalized_chunk =collated_text[prev_end:start]+after_note+collated_text[start:pyld_start]+normalized_before_note+after_note+">" 
-            else:
-                normalized_chunk = collated_text[prev_end:start-len(new_default_word)]+":"+collated_text[start-len(new_default_word):start]+after_note+collated_text[start:pyld_start]+normalized_before_note+after_note+">" 
-            prev_end = end+len(after_note)
-            return normalized_chunk,prev_end
+    return False
 
-    return False    
 
-def side_note_valid_word(note,note_option):
+def side_note_valid_word(note):
     
     left_syls = get_syls(note["left_context"])
     right_syls = get_syls(note["right_context"])
@@ -154,10 +146,20 @@ def side_note_valid_word(note,note_option):
     right_index = 3 if len(right_syls) >= 3 else len(right_syls)
 
     for i in range(left_index-1,-1,-1):
-        for j in range(0,right_syls):
-            word = left_syls[i:]+right_syls[:j+1]
+        for j in range(0,right_index):
+            left_word = sum_up_syll(left_syls[i:])
+            right_word = sum_up_syll(right_syls[:j+1])
+            word =left_word + right_word
             if is_word(word):
-                return word,i,j
+                return left_word,right_word
+
+
+def sum_up_syll(syls):
+    word =""
+    for syl in syls:
+        word+=syl
+
+    return word
 
 
 def resolve_long_omission_with_sub(collated_text,prev_end,note):
@@ -189,7 +191,7 @@ def resolve_long_add_with_sub(collated_text,prev_end,cur_note,next_note,notes_it
         if '-' in cur_note_options[0] and '+' in next_note_options[0]:
             word = ""
             tup = get_left_context_valid_word(cur_note,cur_note_options[0],word)
-            if tup!=False:
+            if tup:
                 word,char_walker = tup
                 next_pyld_start,next_pyld_end = get_payload_span(next_note)
                 left_syls = [token.text for token in get_tokens(cur_note["left_context"])]
