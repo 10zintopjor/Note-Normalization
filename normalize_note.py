@@ -75,7 +75,7 @@ def resolve_full_word_addition(collated_text,prev_end,note):
         note_options = get_note_alt(note)
         note_start,note_end = note['span']
         new_note = collated_text[note_start:note_end]
-        left_syls = get_syls(re.sub(f'{note["default_option"]}$', '', note["left_context"]))
+        #left_syls = get_syls(re.sub(f'{note["default_option"]}$', '', note["left_context"]))
         index_set = set()
         for note_option in note_options:
             if "+" in note_option:
@@ -89,13 +89,13 @@ def resolve_full_word_addition(collated_text,prev_end,note):
                     index_set.add(char_walker)
                     
         if new_note != collated_text[note_start:note_end] and len(list(index_set)) == 1:
-            left_syls = [token.text for token in get_tokens(note["left_context"])]
-            new_default_word = convert_syl_to_word(left_syls[char_walker-1:])
+            #new_left_word = convert_syl_to_word(get_syls(note["left_context"])[char_walker:])
+            new_default_word = word
             if collated_text[note_start-len(note["default_option"])-1] == ":":
                 dem_text = collated_text[prev_end:note_start].replace(":","")
                 normalized_chunk = dem_text[:-len(word)]+":"+dem_text[-len(word):]+new_note
             else:
-                new_left_context = collated_text[prev_end:note_start-len(new_default_word)]
+                new_left_context = collated_text[prev_end:note_start-len(word)]
                 new_default_word = collated_text[note_start-len(new_default_word):note_start]
                 normalized_chunk =new_left_context+":"+new_default_word+new_note
             prev_end = note_end
@@ -115,17 +115,14 @@ def resolve_omission_with_sub(collated_text,prev_end,note):
             new_option = form_word(note)
             new_default_word = new_option+note["default_option"]
             if not new_default_word:
-                return
-            left_tokens = get_tokens(note["left_context"])
-            new_payload = left_tokens[-1].text
-            normalized_payload = "" if new_payload == "།" else new_payload            
+                return         
             new_left_context = collated_text[prev_end:note_start-len(new_default_word)-x]
             normalized_chunk = new_left_context+":"+new_default_word+collated_text[note_start:pyld_start]+new_option.strip()+">"
             return normalized_chunk,note_end
 
         left_word,right_word = tup
         new_payload = left_word+right_word
-        normalized_payload = new_payload[:-1] if new_payload == "།" else new_payload
+        normalized_payload = new_payload.replace("།","་")
         x=1 if collated_text[note_start-len(note["default_option"])-1] == ":" else 0
         new_left_context = collated_text[prev_end:note_start-len(note["default_option"])-len(left_word)-x]
         new_default_word = collated_text[note_start-len(note["default_option"])-len(left_word)-x:note_start].replace(":","")+right_word
@@ -218,7 +215,7 @@ def side_note_valid_word(note):
 
     for i in range(left_index-1,-1,-1):
         for j in range(0,right_index):
-            left_word = sum_up_syll(left_syls[i:])
+            left_word = sum_up_syll(left_syls[i+1:])
             right_word = sum_up_syll(right_syls[:j+1])
             word =left_word + right_word
             if is_word(word):
@@ -231,7 +228,7 @@ def get_left_context_valid_word(note,note_option,word=None):
     if word == None:
         word = note_option.replace("+","")
     left_syls = get_syls(note["left_context"])
-    if len(left_syls) == 0 or left_syls[-1][-1].strip() == "།":
+    if len(left_syls) == 0 or left_syls[-1].strip()[-1] == "།":
         return
     while char_walker >= -len(left_syls) and char_walker>=-3:
         word=left_syls[char_walker]+word

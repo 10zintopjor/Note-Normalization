@@ -371,7 +371,7 @@ def get_token_pos(syl):
 
 
 def is_word(word):
-    tokens = get_tokens(word.replace("།","."))
+    tokens = get_tokens(word.replace("།","་"))
     if len(tokens) == 1:
         return True
     return False
