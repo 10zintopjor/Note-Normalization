@@ -33,7 +33,7 @@ def get_context(chunk, type_):
             context = f"{''.join(syls[:4])}"
     else:
         context = chunk
-    return context.strip()
+    return context
 
 def clean_note(note_text):
     noise_anns = ['«པེ་»', '«སྣར་»', '«སྡེ་»', '«ཅོ་»', '\(\d+\) ', ':']
@@ -371,7 +371,7 @@ def get_token_pos(syl):
 
 
 def is_word(word):
-    tokens = get_tokens(word.replace("།",""))
+    tokens = get_tokens(word.replace("།","."))
     if len(tokens) == 1:
         return True
     return False
